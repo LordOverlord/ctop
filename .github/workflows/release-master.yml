@@ -2,7 +2,7 @@ name: Build and Release ctop for master
 
 on:
     push:
-      branches: [ amster ]
+      branches: [ master ]
     pull_request:
       branches: [ master ]
 
@@ -19,17 +19,55 @@ jobs:
         with:
           go-version: 1.18  # Specify the Go version you want to use
 
+      - name: Tidy up Go modules and get missing dependencies
+        run: |
+            go mod tidy  # Clean up and download necessary dependencies
+
       - name: Build binary for amd64
         run: |
           GOOS=linux GOARCH=amd64 go build -o ctop-linux-amd64
           GOOS=darwin GOARCH=amd64 go build -o ctop-darwin-amd64
-          GOOS=windows GOARCH=amd64 go build -o ctop-windows-amd64.exe
+          GOOS=windows GOARCH=amd64 go build -o ctop-windows-amd64
 
-      - name: Archive binaries
+      - name: Get latest version tag
+        id: get_latest_tag
         run: |
-          tar -czvf ctop-linux-amd64.tar.gz ctop-linux-amd64
-          tar -czvf ctop-darwin-amd64.tar.gz ctop-darwin-amd64
-          zip ctop-windows-amd64.zip ctop-windows-amd64.exe
+          # Fetch tags and find the latest one
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          echo "Latest tag is $LATEST_TAG"
+          # Set output for later steps
+          echo "::set-output name=latest_tag::$LATEST_TAG"
+
+      - name: Increment version tag
+        id: increment_tag
+        run: |
+            LATEST_TAG=${{ steps.get_latest_tag.outputs.latest_tag }}
+            # Check if the latest tag is in the vX.Y.Z format
+            if [[ "$LATEST_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              # Extract the major, minor, and patch components of the version
+              VERSION=$(echo $LATEST_TAG | grep -oP 'v\K\d+\.\d+\.\d+')
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+              # Increment the patch version
+              PATCH=$((PATCH + 1))
+              NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+            else
+              # If the latest tag is not in vX.Y.Z format, start at v0.1.0
+              echo "No valid version tag found. Starting at v0.1.0"
+              NEW_TAG="v0.1.0"
+            fi
+            echo "New version tag is $NEW_TAG"
+            # Set the new tag output for later steps
+            echo "::set-output name=new_tag::$NEW_TAG"
+
+      - name: Create new tag
+        run: |
+          NEW_TAG=${{ steps.increment_tag.outputs.new_tag }}
+          echo "Creating new tag: $NEW_TAG"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $NEW_TAG
+          git push origin $NEW_TAG
 
       - name: Create GitHub Release
         id: create_release
@@ -37,8 +75,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}  # This uses the tag that triggered the workflow
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ steps.increment_tag.outputs.new_tag }}
+          release_name: Release ${{ steps.increment_tag.outputs.new_tag }}
           draft: false
           prerelease: true  # Mark this as a pre-release since it's dev
 
@@ -49,9 +87,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}  # Use the upload URL output from the release step
-          asset_path: ./ctop-linux-amd64.tar.gz
-          asset_name: ctop-linux-amd64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./ctop-linux-amd64
+          asset_name: ctop-linux-amd64
+          asset_content_type: application/octet-stream
 
       # Upload the macOS binary
       - name: Upload Darwin amd64 binary to release
@@ -60,9 +98,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}  # Use the upload URL output
-          asset_path: ./ctop-darwin-amd64.tar.gz
-          asset_name: ctop-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./ctop-darwin-amd64
+          asset_name: ctop-darwin-amd64
+          asset_content_type: application/octet-stream
 
       # Upload the Windows binary
       - name: Upload Windows amd64 binary to release
@@ -71,6 +109,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}  # Use the upload URL output
-          asset_path: ./ctop-windows-amd64.zip
-          asset_name: ctop-windows-amd64.zip
-          asset_content_type: application/zip
+          asset_path: ./ctop-windows-amd64
+          asset_name: ctop-windows-amd64
+          asset_content_type: application/octet-stream
