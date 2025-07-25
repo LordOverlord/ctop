@@ -25,7 +25,7 @@ require (
 	github.com/containerd/containerd v1.7.27 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
-	github.com/docker/docker v26.1.5+incompatible // indirect
+	github.com/docker/docker v23.0.3+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
@@ -50,10 +50,10 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 )
 
-go 1.22
+go 1.23.0
 
-toolchain go1.23.2
+toolchain go1.24.5
