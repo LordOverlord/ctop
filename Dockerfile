@@ -1,6 +1,4 @@
-FROM quay.io/vektorcloud/go:1.18
-
-RUN apk add --no-cache make
+FROM cgr.dev/chainguard/go:latest AS builder
 
 WORKDIR /app
 COPY go.mod .
