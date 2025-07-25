@@ -1,14 +1,15 @@
 name: Build and Release ctop for dev
 
 on:
-    push:
-      branches: [ dev ]
-    pull_request:
-      branches: [ dev ]
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/heads/') # prevent loops on tag push
 
     steps:
       - name: Checkout repository
@@ -17,53 +18,43 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.18  # Specify the Go version you want to use
+          go-version: 1.18
 
-      - name: Tidy up Go modules and get missing dependencies
-        run: |
-            go mod tidy  # Clean up and download necessary dependencies
+      - name: Tidy up Go modules and get dependencies
+        run: go mod tidy
 
-      - name: Build binary for amd64
+      - name: Build binaries for major platforms
         run: |
           GOOS=linux GOARCH=amd64 go build -o ctop-linux-amd64
           GOOS=darwin GOARCH=amd64 go build -o ctop-darwin-amd64
-          GOOS=windows GOARCH=amd64 go build -o ctop-windows-amd64
+          GOOS=windows GOARCH=amd64 go build -o ctop-windows-amd64.exe
 
       - name: Get latest version tag
         id: get_latest_tag
         run: |
-          # Fetch tags and find the latest one
           git fetch --tags
-          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "Latest tag is $LATEST_TAG"
-          # Set output for later steps
-          echo "::set-output name=latest_tag::$LATEST_TAG"
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1) 2>/dev/null || echo "")
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Increment version tag
         id: increment_tag
         run: |
-            LATEST_TAG=${{ steps.get_latest_tag.outputs.latest_tag }}
-            # Check if the latest tag is in the vX.Y.Z format
-            if [[ "$LATEST_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              # Extract the major, minor, and patch components of the version
-              VERSION=$(echo $LATEST_TAG | grep -oP 'v\K\d+\.\d+\.\d+')
-              IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-              # Increment the patch version
-              PATCH=$((PATCH + 1))
-              NEW_TAG="v$MAJOR.$MINOR.$PATCH"
-            else
-              # If the latest tag is not in vX.Y.Z format, start at v0.1.0
-              echo "No valid version tag found. Starting at v0.1.0"
-              NEW_TAG="v0.1.0"
-            fi
-            echo "New version tag is $NEW_TAG"
-            # Set the new tag output for later steps
-            echo "::set-output name=new_tag::$NEW_TAG"
+          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+          if [[ "$LATEST_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            MAJOR=${BASH_REMATCH[1]}
+            MINOR=${BASH_REMATCH[2]}
+            PATCH=${BASH_REMATCH[3]}
+            PATCH=$((PATCH + 1))
+            NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+          else
+            echo "No valid version tag found. Starting at v0.1.0"
+            NEW_TAG="v0.1.0"
+          fi
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Create new tag
+      - name: Create and push new tag
         run: |
           NEW_TAG=${{ steps.increment_tag.outputs.new_tag }}
-          echo "Creating new tag: $NEW_TAG"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag $NEW_TAG
@@ -76,39 +67,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.increment_tag.outputs.new_tag }}
-          release_name: Release ${{ steps.increment_tag.outputs.new_tag }}
+          release_name: "Binary Release ${{ steps.increment_tag.outputs.new_tag }}"
           draft: false
-          prerelease: true  # Mark this as a pre-release since it's dev
+          prerelease: true
 
-      # Upload the Linux binary
-      - name: Upload Linux amd64 binary to release
+      - name: Upload Linux binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}  # Use the upload URL output from the release step
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./ctop-linux-amd64
           asset_name: ctop-linux-amd64
           asset_content_type: application/octet-stream
 
-      # Upload the macOS binary
-      - name: Upload Darwin amd64 binary to release
+      - name: Upload macOS binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}  # Use the upload URL output
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./ctop-darwin-amd64
           asset_name: ctop-darwin-amd64
           asset_content_type: application/octet-stream
 
-      # Upload the Windows binary
-      - name: Upload Windows amd64 binary to release
+      - name: Upload Windows binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}  # Use the upload URL output
-          asset_path: ./ctop-windows-amd64
-          asset_name: ctop-windows-amd64
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./ctop-windows-amd64.exe
+          asset_name: ctop-windows-amd64.exe
           asset_content_type: application/octet-stream
