@@ -1,7 +1,9 @@
 FROM cgr.dev/chainguard/go:latest AS builder
 
+# SHELL ["/bin/busybox", "sh", "-c"]
+
 WORKDIR /app
-COPY go.mod .
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
@@ -11,5 +13,5 @@ RUN make build && \
 
 FROM scratch
 ENV TERM=linux
-COPY --from=0 /go/bin/ctop /ctop
+COPY --from=builder /go/bin/ctop /ctop
 ENTRYPOINT ["/ctop"]
