@@ -1,7 +1,5 @@
 FROM cgr.dev/chainguard/go:latest AS builder
 
-# SHELL ["/bin/busybox", "sh", "-c"]
-
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
