@@ -7,13 +7,13 @@ import (
 	"runtime"
 	"strings"
 
+	ui "github.com/gizak/termui"
 	"github.com/lordoverlord/ctop/config"
 	"github.com/lordoverlord/ctop/connector"
 	"github.com/lordoverlord/ctop/container"
 	"github.com/lordoverlord/ctop/cwidgets/compact"
 	"github.com/lordoverlord/ctop/logging"
 	"github.com/lordoverlord/ctop/widgets"
-	ui "github.com/gizak/termui"
 	tm "github.com/nsf/termbox-go"
 )
 
@@ -134,7 +134,6 @@ func validSort(s string) {
 func panicExit() {
 	if r := recover(); r != nil {
 		Shutdown()
-		panic(r)
 		fmt.Printf("error: %s\n", r)
 		os.Exit(1)
 	}

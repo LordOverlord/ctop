@@ -45,10 +45,7 @@ ctop-windows-amd64.exe
 #### Docker
 
 ```bash
-docker run --rm -ti \
-  --name=ctop \
-  --volume /var/run/docker.sock:/var/run/docker.sock:ro \
-  ghcr.io/lordoverlord/ctop:latest
+docker run --rm -ti --name=ctop --volume /var/run/docker.sock:/var/run/docker.sock:ro ghcr.io/lordoverlord/ctop:latest
 ```
 
 You can also use the tag dev, if youre interested in the latest development version.
