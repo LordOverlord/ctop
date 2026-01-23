@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/lordoverlord/ctop/models"
+	"github.com/bcicen/ctop/models"
 )
 
 // Mock collector

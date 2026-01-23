@@ -10,7 +10,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/types"
 
-	"github.com/lordoverlord/ctop/models"
+	"github.com/bcicen/ctop/models"
 )
 
 // Runc collector
