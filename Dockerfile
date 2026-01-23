@@ -5,7 +5,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN make build && \
+
+ARG VERSION=dev-build
+ARG BUILD=none
+
+RUN VERSION=${VERSION} BUILD=${BUILD} make build && \
     mkdir -p /go/bin && \
     mv -v ctop /go/bin/
 
