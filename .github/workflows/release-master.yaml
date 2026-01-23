@@ -20,6 +20,7 @@ jobs:
     outputs:
       new_tag: ${{ steps.ver.outputs.new_tag }}
       short_sha: ${{ steps.sha.outputs.short_sha }}
+      image_name_lc: ${{ steps.repo.outputs.image_name_lc }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,6 +70,12 @@ jobs:
         run: |
           echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
+      - name: Compute lowercase image name
+        id: repo
+        shell: bash
+        run: |
+          echo "image_name_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
   docker:
     needs: tag
     runs-on: ubuntu-latest
@@ -90,7 +97,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ needs.tag.outputs.image_name_lc }}
           tags: |
             type=raw,value=${{ needs.tag.outputs.new_tag }}
             type=raw,value=latest
@@ -111,7 +118,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag.outputs.new_tag }}
+          image: ${{ env.REGISTRY }}/${{ needs.tag.outputs.image_name_lc }}:${{ needs.tag.outputs.new_tag }}
           command: monitor
 
   binaries:
