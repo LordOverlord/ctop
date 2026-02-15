@@ -7,6 +7,7 @@ import (
 type CompactGrid struct {
 	ui.GridBufferer
 	header *CompactHeader
+	footer *CompactFooter
 	cols   []CompactCol // reference columns
 	Rows   []RowBufferer
 	X, Y   int
@@ -16,7 +17,10 @@ type CompactGrid struct {
 }
 
 func NewCompactGrid() *CompactGrid {
-	cg := &CompactGrid{header: NewCompactHeader()}
+	cg := &CompactGrid{
+		header: NewCompactHeader(),
+		footer: NewCompactFooter(),
+	}
 	cg.rebuildHeader()
 	return cg
 }
@@ -28,13 +32,27 @@ func (cg *CompactGrid) Align() {
 		cg.Offset = 0
 	}
 
-	// update row ypos, width recursively
 	colWidths := cg.calcWidths()
-	for _, r := range cg.pageRows() {
+
+	// 1) header arriba
+	cg.header.SetY(y)
+	cg.header.SetWidths(cg.Width, colWidths)
+	y += cg.header.GetHeight()
+
+	// 2) body rows
+	for _, r := range cg.Rows[cg.Offset:] {
+		// corta si ya no cabe (dejando espacio para footer)
+		if y+r.GetHeight() > ui.TermHeight()-cg.footer.GetHeight() {
+			break
+		}
 		r.SetY(y)
-		y += r.GetHeight()
 		r.SetWidths(cg.Width, colWidths)
+		y += r.GetHeight()
 	}
+
+	// 3) footer fijo abajo
+	cg.footer.SetY(ui.TermHeight() - cg.footer.GetHeight())
+	cg.footer.SetWidths(cg.Width, nil)
 }
 
 func (cg *CompactGrid) Clear() {
@@ -42,11 +60,13 @@ func (cg *CompactGrid) Clear() {
 	cg.rebuildHeader()
 }
 
-func (cg *CompactGrid) GetHeight() int { return len(cg.Rows) + cg.header.Height }
+func (cg *CompactGrid) GetHeight() int { return len(cg.Rows) + cg.header.Height + cg.footer.Height }
 func (cg *CompactGrid) SetX(x int)     { cg.X = x }
 func (cg *CompactGrid) SetY(y int)     { cg.Y = y }
 func (cg *CompactGrid) SetWidth(w int) { cg.Width = w }
-func (cg *CompactGrid) MaxRows() int   { return ui.TermHeight() - cg.header.Height - cg.Y }
+func (cg *CompactGrid) MaxRows() int {
+	return ui.TermHeight() - cg.header.Height - cg.footer.Height - cg.Y
+}
 
 // calculate and return per-column width
 func (cg *CompactGrid) calcWidths() []int {
@@ -71,18 +91,35 @@ func (cg *CompactGrid) calcWidths() []int {
 	}
 	return colWidths
 }
+func (cg *CompactGrid) visibleRows() (rows []RowBufferer) {
+	// El header ocupa arriba, arrancamos después de él
+	y := cg.Y + cg.header.GetHeight()
+	yLimit := ui.TermHeight() - cg.footer.GetHeight()
+
+	for _, r := range cg.Rows[cg.Offset:] {
+		if y+r.GetHeight() > yLimit {
+			break
+		}
+		rows = append(rows, r)
+		y += r.GetHeight()
+	}
+	return rows
+}
 
 func (cg *CompactGrid) pageRows() (rows []RowBufferer) {
 	rows = append(rows, cg.header)
-	rows = append(rows, cg.Rows[cg.Offset:]...)
+	rows = append(rows, cg.visibleRows()...)
+	rows = append(rows, cg.footer)
 	return rows
 }
 
 func (cg *CompactGrid) Buffer() ui.Buffer {
 	buf := ui.NewBuffer()
-	for _, r := range cg.pageRows() {
+	buf.Merge(cg.header.Buffer())
+	for _, r := range cg.visibleRows() {
 		buf.Merge(r.Buffer())
 	}
+	buf.Merge(cg.footer.Buffer())
 	return buf
 }
 
