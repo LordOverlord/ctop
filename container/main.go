@@ -38,7 +38,7 @@ func New(id string, collector collector.Collector, manager manager.Manager) *Con
 	return &Container{
 		Metrics:   models.NewMetrics(),
 		Id:        id,
-		Meta:      models.NewMeta("id", shortID),
+		Meta:      models.NewMeta("id", shortID, "uptime", "-"),
 		Widgets:   widgets,
 		updater:   widgets,
 		collector: collector,
